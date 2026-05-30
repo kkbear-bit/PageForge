@@ -108,4 +108,10 @@ http://localhost:8000
 
 ## License
 
-No license has been selected yet.
+Copyright (c) 2026 PageForge project author. All rights reserved.
+
+This project is not open source. No permission is granted to copy, modify,
+distribute, sublicense, or use the source code without prior written
+authorization from the project author.
+
+Third-party components are tracked in `OPEN_SOURCE_COMPONENTS.md`.
