@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Course Grounded QA</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">CQ</div>
+          <div>
+            <h1>Course QA</h1>
+            <p>课程级教材溯源问答</p>
+          </div>
+        </div>
+
+        <section class="panel course-panel">
+          <div class="section-title">
+            <span>课程</span>
+            <button class="icon-button" id="resetDemo" title="重置演示数据">↻</button>
+          </div>
+          <label class="field">
+            <span>course_id</span>
+            <input id="courseId" value="math-analysis-01" />
+          </label>
+          <label class="field course-select-field">
+            <span>课程库</span>
+            <select id="courseSelect"></select>
+          </label>
+          <div class="course-actions">
+            <button id="newCourse" class="secondary-button">新建课程</button>
+            <button id="saveCourse" class="primary-button">保存课程</button>
+          </div>
+          <div class="course-summary" id="courseSummary"></div>
+          <div class="book-list" id="bookList"></div>
+        </section>
+
+        <section class="panel upload-panel">
+          <div class="section-title">
+            <span>上传课本</span>
+            <span class="pill">PDF / EPUB / MOBI</span>
+          </div>
+          <label class="upload-drop" for="bookUpload">
+            <input id="bookUpload" type="file" accept=".pdf,.epub,.mobi,.txt" multiple />
+            <strong>选择课本文件</strong>
+            <span>可一次添加核心书或辅助书</span>
+          </label>
+          <div class="upload-controls">
+            <label class="field">
+              <span>书籍角色</span>
+              <select id="uploadRole">
+                <option value="core">核心教材</option>
+                <option value="auxiliary" selected>辅助教材</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>检索权重</span>
+              <input id="uploadWeight" type="number" min="0.1" max="1.5" step="0.05" value="0.70" />
+            </label>
+          </div>
+          <button id="addUploadedBooks" class="secondary-button full-width">加入索引队列</button>
+          <div class="upload-preview" id="uploadPreview">尚未选择文件</div>
+        </section>
+
+        <section class="panel small-panel">
+          <div class="section-title">
+            <span>检索策略</span>
+          </div>
+          <label class="strategy-row">
+            <span>核心书优先</span>
+            <input id="coreFirst" type="checkbox" checked />
+          </label>
+          <label class="strategy-row">
+            <span>辅助书排序</span>
+            <select id="auxSortMode">
+              <option value="weight">按权重</option>
+              <option value="ready">ready 优先</option>
+              <option value="name">按名称</option>
+            </select>
+          </label>
+          <label class="strategy-row">
+            <span>未命中反馈</span>
+            <input id="missFeedback" type="checkbox" checked />
+          </label>
+          <label class="strategy-row">
+            <span>检索范围</span>
+            <select id="retrievalScope">
+              <option value="cascade">级联检索</option>
+              <option value="all">全部 ready 书籍</option>
+              <option value="core-only">仅核心教材</option>
+            </select>
+          </label>
+        </section>
+
+        <section class="panel small-panel">
+          <div class="section-title">
+            <span>全局索引库</span>
+            <span class="pill" id="libraryCount">0</span>
+          </div>
+          <div class="library-summary" id="librarySummary"></div>
+        </section>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <h2>题目与课本连贯解析工作台</h2>
+            <p>离线索引与在线问答分离，先查核心教材，再按权重级联检索辅助教材。</p>
+          </div>
+          <div class="top-actions">
+            <button id="runIndex" class="primary-button">运行索引</button>
+            <button id="simulateMiss" class="secondary-button">模拟全书未命中</button>
+          </div>
+        </header>
+
+        <section class="flow-panel">
+          <div class="module-card active" data-module="offline">
+            <span class="module-kicker">离线 / 异步</span>
+            <h3>文件阅读与索引</h3>
+            <p>解析教材，绑定 course_id、book_id、page、bbox，并写入向量库与 SQLite。</p>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="module-card" data-module="store">
+            <span class="module-kicker">存储</span>
+            <h3>证据库与索引</h3>
+            <p>JSONL / SQLite / Chroma / FAISS / BM25，书籍完成后标记为 ready。</p>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="module-card" data-module="online">
+            <span class="module-kicker">在线 / 秒级</span>
+            <h3>问答检索</h3>
+            <p>过滤 ready 书籍，核心书优先，辅助书按权重检索，生成带引用答案。</p>
+          </div>
+        </section>
+
+        <div class="content-grid">
+          <section class="panel index-panel">
+            <div class="section-title">
+              <span>索引队列</span>
+              <span class="pill" id="readyCount">0 ready</span>
+            </div>
+            <div class="timeline" id="indexTimeline"></div>
+          </section>
+
+          <section class="panel database-panel">
+            <div class="section-title">
+              <span>全局数据库</span>
+              <span class="pill">CRUD</span>
+            </div>
+            <div class="storage-box">
+              <div class="section-title compact-title">
+                <span>本机存储位置</span>
+                <button id="pickStorageDir" class="secondary-button">选择文件夹</button>
+              </div>
+              <label class="field">
+                <span>原文件目录</span>
+                <input id="rawStoragePath" placeholder="例如 D:\\CourseQA\\raw" />
+              </label>
+              <label class="field">
+                <span>索引目录</span>
+                <input id="indexStoragePath" placeholder="例如 D:\\CourseQA\\indexes" />
+              </label>
+              <label class="field">
+                <span>SQLite 路径</span>
+                <input id="sqlitePath" placeholder="例如 D:\\CourseQA\\courseqa.sqlite" />
+              </label>
+              <button id="saveStoragePaths" class="primary-button full-width">保存存储位置</button>
+              <div class="storage-note" id="storageNote"></div>
+            </div>
+            <div class="db-toolbar">
+              <input id="dbSearch" placeholder="搜索教材或 index_id" />
+              <button id="addDbRecord" class="secondary-button">新增记录</button>
+            </div>
+            <div class="db-list" id="dbList"></div>
+          </section>
+
+          <section class="panel qa-panel">
+            <div class="section-title">
+              <span>问答检索</span>
+              <span class="pill">cascade retrieval</span>
+            </div>
+            <textarea id="questionInput">如何理解函数单调性的定义，并用课本例题说明证明步骤？</textarea>
+            <button id="askButton" class="primary-button full-width">开始检索并生成答案</button>
+            <div class="trace" id="searchTrace"></div>
+            <article class="answer" id="answerBox"></article>
+          </section>
+
+          <section class="panel citation-panel">
+            <div class="section-title">
+              <span>引用定位</span>
+              <span class="pill">page + bbox</span>
+            </div>
+            <div class="pdf-viewer">
+              <div class="page-label" id="pageLabel">p.45</div>
+              <div class="text-line wide"></div>
+              <div class="text-line"></div>
+              <div class="highlight-box" id="highlightBox">定义：函数在区间上的单调性</div>
+              <div class="text-line short"></div>
+              <div class="formula-box">x₁ &lt; x₂ ⇒ f(x₁) ≤ f(x₂)</div>
+              <div class="text-line"></div>
+              <div class="text-line wide"></div>
+            </div>
+            <div class="citation-list" id="citationList"></div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
