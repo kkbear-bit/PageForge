@@ -574,6 +574,44 @@ textarea:focus {
   font-weight: 800;
 }
 
+.chapter-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding-right: 46px;
+}
+
+.chapter-tag {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: #f7f9fd;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.context-strip {
+  display: grid;
+  gap: 6px;
+  margin: -4px 0 12px;
+}
+
+.context-line {
+  border-left: 3px solid var(--line);
+  padding-left: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.context-line.current {
+  border-left-color: var(--blue);
+  color: var(--ink);
+  font-weight: 800;
+}
+
 .formula-box {
   border-left: 4px solid var(--green);
   background: #eaf6f0;
