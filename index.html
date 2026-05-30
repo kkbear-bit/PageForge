@@ -3,50 +3,49 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Course Grounded QA</title>
+    <title>PageForge · Course Grounded QA</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <div class="app-shell">
       <aside class="sidebar">
         <div class="brand">
-          <div class="brand-mark">CQ</div>
+          <div class="brand-mark">PF</div>
           <div>
-            <h1>Course QA</h1>
-            <p>课程级教材溯源问答</p>
+            <h1>PageForge</h1>
+            <p>课程教材溯源问答</p>
           </div>
         </div>
 
-        <section class="panel course-panel">
+        <section class="panel">
           <div class="section-title">
-            <span>课程</span>
+            <span>课程空间</span>
             <button class="icon-button" id="resetDemo" title="重置演示数据">↻</button>
           </div>
+          <label class="field">
+            <span>当前课程</span>
+            <select id="courseSelect"></select>
+          </label>
           <label class="field">
             <span>course_id</span>
             <input id="courseId" value="math-analysis-01" />
           </label>
-          <label class="field course-select-field">
-            <span>课程库</span>
-            <select id="courseSelect"></select>
-          </label>
-          <div class="course-actions">
+          <div class="button-pair">
             <button id="newCourse" class="secondary-button">新建课程</button>
             <button id="saveCourse" class="primary-button">保存课程</button>
           </div>
           <div class="course-summary" id="courseSummary"></div>
-          <div class="book-list" id="bookList"></div>
         </section>
 
-        <section class="panel upload-panel">
+        <section class="panel">
           <div class="section-title">
-            <span>上传课本</span>
+            <span>教材上传</span>
             <span class="pill">PDF / EPUB / MOBI</span>
           </div>
           <label class="upload-drop" for="bookUpload">
             <input id="bookUpload" type="file" accept=".pdf,.epub,.mobi,.txt" multiple />
-            <strong>选择课本文件</strong>
-            <span>可一次添加核心书或辅助书</span>
+            <strong>选择教材文件</strong>
+            <span>加入课程索引队列，演示版不会上传真实文件</span>
           </label>
           <div class="upload-controls">
             <label class="field">
@@ -57,20 +56,20 @@
               </select>
             </label>
             <label class="field">
-              <span>检索权重</span>
-              <input id="uploadWeight" type="number" min="0.1" max="1.5" step="0.05" value="0.70" />
+              <span>权重</span>
+              <input id="uploadWeight" type="number" min="0" max="1" step="0.05" value="0.70" />
             </label>
           </div>
           <button id="addUploadedBooks" class="secondary-button full-width">加入索引队列</button>
           <div class="upload-preview" id="uploadPreview">尚未选择文件</div>
         </section>
 
-        <section class="panel small-panel">
+        <section class="panel">
           <div class="section-title">
             <span>检索策略</span>
           </div>
           <label class="strategy-row">
-            <span>核心书优先</span>
+            <span>核心教材优先</span>
             <input id="coreFirst" type="checkbox" checked />
           </label>
           <label class="strategy-row">
@@ -94,21 +93,14 @@
             </select>
           </label>
         </section>
-
-        <section class="panel small-panel">
-          <div class="section-title">
-            <span>全局索引库</span>
-            <span class="pill" id="libraryCount">0</span>
-          </div>
-          <div class="library-summary" id="librarySummary"></div>
-        </section>
       </aside>
 
       <main class="workspace">
         <header class="topbar">
           <div>
+            <span class="eyebrow">Evidence-first course QA</span>
             <h2>题目与课本连贯解析工作台</h2>
-            <p>离线索引与在线问答分离，先查核心教材，再按权重级联检索辅助教材。</p>
+            <p>把课程、教材、索引状态和答案引用放在同一个可审计界面里。</p>
           </div>
           <div class="top-actions">
             <button id="runIndex" class="primary-button">运行索引</button>
@@ -116,23 +108,40 @@
           </div>
         </header>
 
+        <section class="stats-grid">
+          <div class="stat-card">
+            <span>课程教材</span>
+            <strong id="bookMetric">0</strong>
+          </div>
+          <div class="stat-card">
+            <span>Ready 索引</span>
+            <strong id="readyMetric">0</strong>
+          </div>
+          <div class="stat-card">
+            <span>核心教材</span>
+            <strong id="coreMetric">未设置</strong>
+          </div>
+          <div class="stat-card">
+            <span>证据策略</span>
+            <strong id="scopeMetric">级联</strong>
+          </div>
+        </section>
+
         <section class="flow-panel">
-          <div class="module-card active" data-module="offline">
-            <span class="module-kicker">离线 / 异步</span>
-            <h3>文件阅读与索引</h3>
-            <p>解析教材，绑定 course_id、book_id、page、bbox，并写入向量库与 SQLite。</p>
+          <div class="module-card active">
+            <span class="module-kicker">01 · 离线</span>
+            <h3>文件解析与切块</h3>
+            <p>抽取文本、页码、版面坐标和 chunk，等待后端写入证据库。</p>
           </div>
-          <div class="flow-arrow">→</div>
-          <div class="module-card" data-module="store">
-            <span class="module-kicker">存储</span>
-            <h3>证据库与索引</h3>
-            <p>JSONL / SQLite / Chroma / FAISS / BM25，书籍完成后标记为 ready。</p>
+          <div class="module-card">
+            <span class="module-kicker">02 · 存储</span>
+            <h3>索引库与元数据</h3>
+            <p>用 SQLite 保存页码和 bbox，用向量库与 BM25 支撑召回。</p>
           </div>
-          <div class="flow-arrow">→</div>
-          <div class="module-card" data-module="online">
-            <span class="module-kicker">在线 / 秒级</span>
-            <h3>问答检索</h3>
-            <p>过滤 ready 书籍，核心书优先，辅助书按权重检索，生成带引用答案。</p>
+          <div class="module-card">
+            <span class="module-kicker">03 · 在线</span>
+            <h3>有证据的回答</h3>
+            <p>先查核心教材，再按策略补充辅助书；证据不足时拒绝编造。</p>
           </div>
         </section>
 
@@ -142,39 +151,8 @@
               <span>索引队列</span>
               <span class="pill" id="readyCount">0 ready</span>
             </div>
+            <div class="book-list" id="bookList"></div>
             <div class="timeline" id="indexTimeline"></div>
-          </section>
-
-          <section class="panel database-panel">
-            <div class="section-title">
-              <span>全局数据库</span>
-              <span class="pill">CRUD</span>
-            </div>
-            <div class="storage-box">
-              <div class="section-title compact-title">
-                <span>本机存储位置</span>
-                <button id="pickStorageDir" class="secondary-button">选择文件夹</button>
-              </div>
-              <label class="field">
-                <span>原文件目录</span>
-                <input id="rawStoragePath" placeholder="例如 D:\\CourseQA\\raw" />
-              </label>
-              <label class="field">
-                <span>索引目录</span>
-                <input id="indexStoragePath" placeholder="例如 D:\\CourseQA\\indexes" />
-              </label>
-              <label class="field">
-                <span>SQLite 路径</span>
-                <input id="sqlitePath" placeholder="例如 D:\\CourseQA\\courseqa.sqlite" />
-              </label>
-              <button id="saveStoragePaths" class="primary-button full-width">保存存储位置</button>
-              <div class="storage-note" id="storageNote"></div>
-            </div>
-            <div class="db-toolbar">
-              <input id="dbSearch" placeholder="搜索教材或 index_id" />
-              <button id="addDbRecord" class="secondary-button">新增记录</button>
-            </div>
-            <div class="db-list" id="dbList"></div>
           </section>
 
           <section class="panel qa-panel">
@@ -183,7 +161,7 @@
               <span class="pill">cascade retrieval</span>
             </div>
             <textarea id="questionInput">如何理解函数单调性的定义，并用课本例题说明证明步骤？</textarea>
-            <button id="askButton" class="primary-button full-width">开始检索并生成答案</button>
+            <button id="askButton" class="primary-button full-width">检索并生成答案</button>
             <div class="trace" id="searchTrace"></div>
             <article class="answer" id="answerBox"></article>
           </section>
