@@ -92,6 +92,34 @@
               <option value="core-only">仅核心教材</option>
             </select>
           </label>
+          <label class="strategy-row">
+            <span>章节限定</span>
+            <select id="chapterMode">
+              <option value="course">全课程</option>
+              <option value="chapter">指定章节</option>
+              <option value="module">同模块聚合</option>
+            </select>
+          </label>
+          <label class="field chapter-field">
+            <span>章节/小节</span>
+            <select id="chapterSelect">
+              <option value="finance-infra">第 3 章 金融市场基础设施</option>
+              <option value="settlement">3.2 证券登记结算机构</option>
+              <option value="monotonicity">2.3 函数单调性</option>
+            </select>
+          </label>
+          <label class="strategy-row">
+            <span>同模块辅助</span>
+            <input id="includeModule" type="checkbox" checked />
+          </label>
+          <label class="strategy-row">
+            <span>目录等级</span>
+            <select id="tocDepth">
+              <option value="1">一级目录</option>
+              <option value="2">二级目录</option>
+              <option value="3">三级目录</option>
+            </select>
+          </label>
         </section>
       </aside>
 
@@ -127,6 +155,24 @@
           </div>
         </section>
 
+        <section class="guardrail-grid">
+          <div class="guardrail-item">
+            <span>上下文控制</span>
+            <strong id="corpusMetric">0 页教材待索引</strong>
+            <p>先检索证据，再把必要片段交给模型。</p>
+          </div>
+          <div class="guardrail-item">
+            <span>检索方式</span>
+            <strong id="retrievalModeMetric">核心优先</strong>
+            <p>兼顾语义召回、教材权重和课程范围。</p>
+          </div>
+          <div class="guardrail-item">
+            <span>证据门控</span>
+            <strong id="gateMetric">未命中时拒答</strong>
+            <p>证据不足时保留轨迹，不生成黑箱答案。</p>
+          </div>
+        </section>
+
         <section class="flow-panel">
           <div class="module-card active">
             <span class="module-kicker">01 · 离线</span>
@@ -135,8 +181,8 @@
           </div>
           <div class="module-card">
             <span class="module-kicker">02 · 检索</span>
-            <h3>按课程和权重召回</h3>
-            <p>先查核心教材，再按权重补充辅助教材，避免资料混用。</p>
+            <h3>章节过滤与同模块聚合</h3>
+            <p>可先限定章/节/考点，再扩展到同模块辅助教材，减少噪声和上下文成本。</p>
           </div>
           <div class="module-card">
             <span class="module-kicker">03 · 回答</span>
@@ -160,6 +206,10 @@
               <span>问答检索</span>
               <span class="pill">evidence trace</span>
             </div>
+            <label class="field qa-chapter-field">
+              <span>检索章节（核心教材目录）</span>
+              <select id="qaChapterSelect"></select>
+            </label>
             <textarea id="questionInput">如何理解函数单调性的定义，并用课本例题说明证明步骤？</textarea>
             <button id="askButton" class="primary-button full-width">检索并生成答案</button>
             <div class="trace" id="searchTrace"></div>
