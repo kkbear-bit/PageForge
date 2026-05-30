@@ -64,6 +64,8 @@ const els = {
   answerBox: $("#answerBox"),
   pageLabel: $("#pageLabel"),
   highlightBox: $("#highlightBox"),
+  chapterTags: $("#chapterTags"),
+  contextStrip: $("#contextStrip"),
   citationList: $("#citationList"),
 };
 
@@ -145,13 +147,14 @@ function tokenize(text) {
 
 function domainGate(question, book) {
   const qDomains = detectDomains(question);
-  if (!qDomains.length) return { pass: true, reason: "未识别强领域，允许检索" };
+  if (!qDomains.length) return { pass: true, soft: false, reason: "未识别强领域，允许检索" };
   const bDomains = detectDomains(`${book.name} ${book.id} ${course().title} ${currentCourseId}`);
-  if (!bDomains.length) return { pass: true, reason: "教材领域未知，低置信检索" };
+  if (!bDomains.length) return { pass: true, soft: true, reason: "教材领域未知，进入宽松检索" };
   const pass = bDomains.some((item) => item.domain === qDomains[0].domain);
   return {
-    pass,
-    reason: pass ? `领域匹配：${qDomains[0].domain}` : `领域不匹配：问题像 ${qDomains[0].domain}，教材像 ${bDomains[0].domain}`,
+    pass: true,
+    soft: !pass,
+    reason: pass ? `领域匹配：${qDomains[0].domain}` : `领域弱匹配：问题像 ${qDomains[0].domain}，教材像 ${bDomains[0].domain}，进入宽松全文检索候选`,
   };
 }
 
@@ -169,9 +172,10 @@ function fuzzyRetrieve(question) {
       const overlap = qTokens.filter((token) => bTokens.some((bt) => bt.includes(token) || token.includes(bt)));
       const roleBoost = book.role === "core" ? 0.2 : 0;
       const typeBoost = qType === "numeric" && /证券|金融|资金|亿元|登记|结算/.test(`${book.name}${course().title}`) ? 0.25 : 0;
+      const intentBoost = qType !== "general" ? 0.08 : 0;
       const overlapScore = qTokens.length ? overlap.length / qTokens.length : 0;
-      const rawScore = 0.05 + roleBoost + book.weight * 0.25 + typeBoost + overlapScore;
-      const score = gate.pass ? Math.min(1, rawScore) : Math.min(0.16, rawScore * 0.2);
+      const rawScore = 0.05 + roleBoost + book.weight * 0.25 + typeBoost + intentBoost + overlapScore;
+      const score = gate.soft ? Math.min(0.42, 0.22 + rawScore * 0.25) : Math.min(1, rawScore);
       return { book, gate, overlap, questionType: qType, score };
     })
     .sort((a, b) => b.score - a.score);
@@ -179,8 +183,9 @@ function fuzzyRetrieve(question) {
   const best = results[0];
   const threshold = 0.28;
   return {
-    hit: Boolean(best && best.gate.pass && best.score >= threshold),
-    mismatch: Boolean(best && !best.gate.pass),
+    hit: Boolean(best && best.score >= threshold),
+    softHit: Boolean(best && best.gate.soft && best.score >= threshold),
+    mismatch: false,
     confidence: best ? best.score : 0,
     reason: best ? best.gate.reason : "无候选",
     results: results.slice(0, 3),
@@ -293,8 +298,8 @@ function renderTrace(retrieval = fuzzyRetrieve(els.questionInput.value)) {
   const ready = course().books.filter((book) => book.status === "ready").length;
   const rows = [
     ["过滤课程", `course_id=${currentCourseId}，ready 书籍 ${ready} 本`, "ready"],
-    ["知识域门控", retrieval.reason || "完成领域判断", retrieval.hit ? "ready" : retrieval.mismatch ? "miss" : "queued"],
-    ["模糊召回", retrieval.hit ? `命中候选，置信度 ${(retrieval.confidence * 100).toFixed(0)}%` : "未找到可支持该问题的候选证据", retrieval.hit ? "ready" : "miss"],
+    ["知识域门控", retrieval.reason || "完成领域判断", retrieval.softHit ? "queued" : retrieval.hit ? "ready" : "miss"],
+    ["模糊召回", retrieval.hit ? `${retrieval.softHit ? "宽松候选" : "命中候选"}，置信度 ${(retrieval.confidence * 100).toFixed(0)}%` : "未找到可支持该问题的候选证据", retrieval.hit ? "ready" : "miss"],
   ];
   els.searchTrace.innerHTML = rows.map(([title, body, status]) => `<div class="trace-row"><div><strong>${title}</strong><span>${body}</span></div><span class="status ${statusClass(status)}">${status}</span></div>`).join("");
 }
@@ -303,19 +308,73 @@ function renderAnswer(retrieval = fuzzyRetrieve(els.questionInput.value)) {
   if (!retrieval.hit) {
     els.answerBox.innerHTML = `<h3>未定位到足够依据</h3><p>${retrieval.reason || "当前课程教材与问题知识域不匹配，或没有 ready 教材。"} 系统不会强行生成答案。请切换课程、添加匹配教材，或放宽检索范围。</p>`;
     els.citationList.innerHTML = "";
+    updateCitationContext("未命中|等待证据", "上一段：暂无候选。", "当前段：没有通过校验的教材片段。", "下一段：请运行索引或调整检索策略。");
     return;
   }
   const top = retrieval.results[0];
-  els.answerBox.innerHTML = `<h3>答案</h3><p>已在 <strong>${top.book.name}</strong> 中找到模糊候选。当前置信度 ${(top.score * 100).toFixed(0)}%。后端接入真实 chunk 后，将继续校验实体、属性、关系和数值，再输出精确页码。</p><p>候选依据：${top.overlap.slice(0, 5).join(" / ") || "课程主题与问题匹配"} <span class="cite">[${top.book.name} p.45]</span></p>`;
+  els.answerBox.innerHTML = `<h3>${retrieval.softHit ? "宽松候选" : "答案"}</h3><p>已在 <strong>${top.book.name}</strong> 中找到${retrieval.softHit ? "需要全文校验的宽松候选" : "模糊候选"}。当前置信度 ${(top.score * 100).toFixed(0)}%。</p><p>${retrieval.softHit ? "由于问题表达和教材主题词不完全一致，系统不会在前端原型中断言最终答案；后端应继续执行 BM25 / 向量 / 数值单位检索，并校验 chunk 原文。" : "后端接入真实 chunk 后，将继续校验实体、属性、关系和数值，再输出精确页码。"}</p><p>候选依据：${top.overlap.slice(0, 5).join(" / ") || "课程 ready 教材宽松候选"} <span class="cite">[${top.book.name} p.45]</span></p>`;
   els.citationList.innerHTML = retrieval.results
-    .map((item, index) => `<button class="citation-item" data-page="${45 + index}" data-text="候选：${item.overlap.slice(0, 4).join(" / ") || item.book.name}"><div><strong>${item.book.name}</strong><span>p.${45 + index} · ${item.book.id}-candidate-${index + 1}</span></div><span>bbox</span></button>`)
+    .map((item, index) => {
+      const tags = sectionTags(item.book, item.questionType).join("|");
+      const context = paragraphContext(item.book, item.questionType);
+      return `<button class="citation-item" data-page="${45 + index}" data-text="候选：${item.overlap.slice(0, 4).join(" / ") || item.book.name}" data-tags="${tags}" data-before="${context.before}" data-current="${context.current}" data-after="${context.after}"><div><strong>${item.book.name}</strong><span>${tags.replaceAll("|", " / ")} · ${item.book.id}-candidate-${index + 1}</span></div><span>章节</span></button>`;
+    })
     .join("");
   els.citationList.querySelectorAll(".citation-item").forEach((button) => {
     button.addEventListener("click", () => {
       els.pageLabel.textContent = `p.${button.dataset.page}`;
       els.highlightBox.textContent = button.dataset.text;
+      updateCitationContext(button.dataset.tags, button.dataset.before, button.dataset.current, button.dataset.after);
     });
   });
+  const first = els.citationList.querySelector(".citation-item");
+  if (first) updateCitationContext(first.dataset.tags, first.dataset.before, first.dataset.current, first.dataset.after);
+}
+
+function sectionTags(book, questionType) {
+  const title = course().title || currentCourseId;
+  if (/金融|证券|市场/.test(`${book.name}${title}`)) {
+    return ["第 3 章 金融市场基础设施", "3.2 证券登记结算机构", questionType === "numeric" ? "考点：设立条件/金额要求" : "考点：机构与业务规则"];
+  }
+  if (/数学|函数|分析/.test(`${book.name}${title}`)) {
+    return ["第 2 章 函数", "2.3 函数单调性", questionType === "procedure" ? "考点：证明方法" : "考点：定义与性质"];
+  }
+  return [title, roleText(book.role), "考点：候选知识点"];
+}
+
+function paragraphContext(book, questionType) {
+  if (/金融|证券|市场/.test(`${book.name}${course().title}`)) {
+    return {
+      before: "上一段：教材介绍相关市场主体、业务职责或设立背景。",
+      current: questionType === "numeric" ? "当前段：定位设立条件、自有资金、人民币金额等数值要求。" : "当前段：定位概念定义、职责范围或监管要求。",
+      after: "下一段：通常衔接业务规则、监管要求或其他条件。",
+    };
+  }
+  if (/数学|函数|分析/.test(`${book.name}${course().title}`)) {
+    return {
+      before: "上一段：引入函数在区间上的比较关系。",
+      current: "当前段：给出定义、公式或证明关键步骤。",
+      after: "下一段：衔接例题、推导或应用条件。",
+    };
+  }
+  return {
+    before: "上一段：候选知识点的前置背景。",
+    current: "当前段：可能支持用户问题的核心片段。",
+    after: "下一段：后续解释、条件或例题。",
+  };
+}
+
+function updateCitationContext(tags, before, current, after) {
+  els.chapterTags.innerHTML = (tags || "")
+    .split("|")
+    .filter(Boolean)
+    .map((tag) => `<span class="chapter-tag">${tag}</span>`)
+    .join("");
+  els.contextStrip.innerHTML = `
+    <div class="context-line">${before || "上一段：待后端返回上下文。"}</div>
+    <div class="context-line current">${current || "当前段：待后端返回命中段落。"}</div>
+    <div class="context-line">${after || "下一段：待后端返回上下文。"}</div>
+  `;
 }
 
 function render() {
