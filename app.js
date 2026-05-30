@@ -4,7 +4,7 @@ const demoCourses = {
   "finance-basics-2025": {
     id: "finance-basics-2025",
     title: "市场基础知识",
-    strategy: { coreFirst: true, auxSortMode: "weight", missFeedback: true, retrievalScope: "cascade" },
+    strategy: { coreFirst: true, auxSortMode: "weight", missFeedback: true, retrievalScope: "cascade", chapterMode: "course", selectedChapter: "finance-infra", includeModule: true, tocDepth: "1" },
     books: [
       {
         id: "finance-core",
@@ -20,7 +20,7 @@ const demoCourses = {
   "math-analysis-01": {
     id: "math-analysis-01",
     title: "数学分析",
-    strategy: { coreFirst: true, auxSortMode: "weight", missFeedback: true, retrievalScope: "cascade" },
+    strategy: { coreFirst: true, auxSortMode: "weight", missFeedback: true, retrievalScope: "cascade", chapterMode: "course", selectedChapter: "monotonicity", includeModule: true, tocDepth: "1" },
     books: [
       { id: "math-core", name: "数学分析主教材.pdf", role: "core", weight: 1, status: "ready", pages: 512, indexId: "idx-math" },
     ],
@@ -49,12 +49,20 @@ const els = {
   auxSortMode: $("#auxSortMode"),
   missFeedback: $("#missFeedback"),
   retrievalScope: $("#retrievalScope"),
+  chapterMode: $("#chapterMode"),
+  chapterSelect: $("#chapterSelect"),
+  includeModule: $("#includeModule"),
+  tocDepth: $("#tocDepth"),
+  qaChapterSelect: $("#qaChapterSelect"),
   runIndex: $("#runIndex"),
   simulateMiss: $("#simulateMiss"),
   bookMetric: $("#bookMetric"),
   readyMetric: $("#readyMetric"),
   coreMetric: $("#coreMetric"),
   scopeMetric: $("#scopeMetric"),
+  corpusMetric: $("#corpusMetric"),
+  retrievalModeMetric: $("#retrievalModeMetric"),
+  gateMetric: $("#gateMetric"),
   readyCount: $("#readyCount"),
   bookList: $("#bookList"),
   indexTimeline: $("#indexTimeline"),
@@ -86,12 +94,33 @@ function course() {
     courses[currentCourseId] = {
       id: currentCourseId,
       title: currentCourseId,
-      strategy: { coreFirst: true, auxSortMode: "weight", missFeedback: true, retrievalScope: "cascade" },
+      strategy: defaultStrategy(),
       books: [],
     };
   }
   return courses[currentCourseId];
 }
+
+function defaultStrategy() {
+  return {
+    coreFirst: true,
+    auxSortMode: "weight",
+    missFeedback: true,
+    retrievalScope: "cascade",
+    chapterMode: "course",
+    selectedChapter: "finance-infra",
+    includeModule: true,
+    tocDepth: "1",
+  };
+}
+
+const tocOptions = [
+  { value: "finance-infra", level: 1, label: "第 3 章 金融市场基础设施", module: "finance" },
+  { value: "settlement", level: 2, label: "3.2 证券登记结算机构", module: "settlement" },
+  { value: "bond-market", level: 2, label: "3.4 债券市场", module: "bond" },
+  { value: "bond-quote", level: 3, label: "考点：债券报价方式", module: "bond" },
+  { value: "monotonicity", level: 2, label: "2.3 函数单调性", module: "math" },
+];
 
 function clampWeight(value) {
   const number = Number(value);
@@ -165,18 +194,23 @@ function fuzzyRetrieve(question) {
 
   const qTokens = tokenize(`${question} ${course().title} ${currentCourseId}`);
   const qType = detectQuestionType(question);
+  const scopeText = scopeDescription();
+  const selectedToc = tocOptions.find((item) => item.value === course().strategy.selectedChapter);
   const results = candidates
     .map((book) => {
       const gate = domainGate(question, book);
-      const bTokens = tokenize(`${book.name} ${book.id} ${roleText(book.role)} ${course().title}`);
+      const bTokens = tokenize(`${book.name} ${book.id} ${roleText(book.role)} ${course().title} ${scopeText}`);
       const overlap = qTokens.filter((token) => bTokens.some((bt) => bt.includes(token) || token.includes(bt)));
       const roleBoost = book.role === "core" ? 0.2 : 0;
       const typeBoost = qType === "numeric" && /证券|金融|资金|亿元|登记|结算/.test(`${book.name}${course().title}`) ? 0.25 : 0;
       const intentBoost = qType !== "general" ? 0.08 : 0;
+      const chapterBoost = course().strategy.chapterMode !== "course" ? 0.18 : 0;
+      const moduleBoost = course().strategy.chapterMode === "module" && course().strategy.includeModule && book.role !== "core" ? 0.08 : 0;
+      const tocBoost = selectedToc && qTokens.some((token) => tokenize(selectedToc.label).includes(token)) ? 0.12 : 0;
       const overlapScore = qTokens.length ? overlap.length / qTokens.length : 0;
-      const rawScore = 0.05 + roleBoost + book.weight * 0.25 + typeBoost + intentBoost + overlapScore;
+      const rawScore = 0.05 + roleBoost + book.weight * 0.25 + typeBoost + intentBoost + chapterBoost + moduleBoost + tocBoost + overlapScore;
       const score = gate.soft ? Math.min(0.42, 0.22 + rawScore * 0.25) : Math.min(1, rawScore);
-      return { book, gate, overlap, questionType: qType, score };
+      return { book, gate, overlap, questionType: qType, score, scopeText };
     })
     .sort((a, b) => b.score - a.score);
 
@@ -188,6 +222,7 @@ function fuzzyRetrieve(question) {
     mismatch: false,
     confidence: best ? best.score : 0,
     reason: best ? best.gate.reason : "无候选",
+    scopeText,
     results: results.slice(0, 3),
   };
 }
@@ -209,11 +244,42 @@ function renderCourses() {
 }
 
 function renderStrategy() {
+  course().strategy = { ...defaultStrategy(), ...(course().strategy || {}) };
   const s = course().strategy;
   els.coreFirst.checked = s.coreFirst;
   els.auxSortMode.value = s.auxSortMode;
   els.missFeedback.checked = s.missFeedback;
   els.retrievalScope.value = s.retrievalScope;
+  els.chapterMode.value = s.chapterMode;
+  els.chapterSelect.value = s.selectedChapter;
+  els.includeModule.checked = s.includeModule;
+  els.tocDepth.value = s.tocDepth;
+  renderTocSelectors();
+}
+
+function chapterLabel(value = course().strategy.selectedChapter) {
+  const item = tocOptions.find((entry) => entry.value === value);
+  return item ? item.label : "未限定章节";
+}
+
+function renderTocSelectors() {
+  const depth = Number(course().strategy.tocDepth || 1);
+  const visible = tocOptions.filter((item) => item.level <= depth);
+  const options = visible.map((item) => `<option value="${item.value}">${item.label}</option>`).join("");
+  els.chapterSelect.innerHTML = options;
+  els.qaChapterSelect.innerHTML = `<option value="course">全课程</option>${options}`;
+  if (!visible.some((item) => item.value === course().strategy.selectedChapter)) {
+    course().strategy.selectedChapter = visible[0] ? visible[0].value : "finance-infra";
+  }
+  els.chapterSelect.value = course().strategy.selectedChapter;
+  els.qaChapterSelect.value = course().strategy.chapterMode === "course" ? "course" : course().strategy.selectedChapter;
+}
+
+function scopeDescription() {
+  const s = course().strategy;
+  if (s.chapterMode === "chapter") return `指定章节：${chapterLabel()}`;
+  if (s.chapterMode === "module") return `同模块聚合：${chapterLabel()}${s.includeModule ? " + 辅助教材同模块" : ""}`;
+  return "全课程检索";
 }
 
 function renderUploadPreview() {
@@ -280,10 +346,18 @@ function renderMetrics() {
   const books = course().books;
   const ready = books.filter((book) => book.status === "ready").length;
   const core = books.find((book) => book.role === "core");
+  const totalPages = books.reduce((sum, book) => sum + Number(book.pages || 0), 0);
   els.bookMetric.textContent = books.length;
   els.readyMetric.textContent = ready;
   els.coreMetric.textContent = core ? core.name.slice(0, 10) : "未设置";
   els.scopeMetric.textContent = { cascade: "级联", all: "全部", "core-only": "核心" }[course().strategy.retrievalScope];
+  els.corpusMetric.textContent = `${totalPages} 页教材待索引`;
+  els.retrievalModeMetric.textContent = {
+    cascade: "核心优先 + 辅助补充",
+    all: "全库 ready 资料召回",
+    "core-only": "仅核心教材召回",
+  }[course().strategy.retrievalScope];
+  els.gateMetric.textContent = course().strategy.missFeedback ? "未命中时拒答" : "仅保留检索轨迹";
   els.readyCount.textContent = `${ready} ready`;
   els.courseSummary.innerHTML = `已储备 ${books.length} 本课本，${ready} 本 ready<br>核心教材：${core ? core.name : "未设置"}`;
 }
@@ -298,6 +372,7 @@ function renderTrace(retrieval = fuzzyRetrieve(els.questionInput.value)) {
   const ready = course().books.filter((book) => book.status === "ready").length;
   const rows = [
     ["过滤课程", `course_id=${currentCourseId}，ready 书籍 ${ready} 本`, "ready"],
+    ["章节范围", retrieval.scopeText || scopeDescription(), course().strategy.chapterMode === "course" ? "queued" : "ready"],
     ["知识域门控", retrieval.reason || "完成领域判断", retrieval.softHit ? "queued" : retrieval.hit ? "ready" : "miss"],
     ["模糊召回", retrieval.hit ? `${retrieval.softHit ? "宽松候选" : "命中候选"}，置信度 ${(retrieval.confidence * 100).toFixed(0)}%` : "未找到可支持该问题的候选证据", retrieval.hit ? "ready" : "miss"],
   ];
@@ -312,7 +387,7 @@ function renderAnswer(retrieval = fuzzyRetrieve(els.questionInput.value)) {
     return;
   }
   const top = retrieval.results[0];
-  els.answerBox.innerHTML = `<h3>${retrieval.softHit ? "宽松候选" : "答案"}</h3><p>已在 <strong>${top.book.name}</strong> 中找到${retrieval.softHit ? "需要全文校验的宽松候选" : "模糊候选"}。当前置信度 ${(top.score * 100).toFixed(0)}%。</p><p>${retrieval.softHit ? "由于问题表达和教材主题词不完全一致，系统不会在前端原型中断言最终答案；后端应继续执行 BM25 / 向量 / 数值单位检索，并校验 chunk 原文。" : "后端接入真实 chunk 后，将继续校验实体、属性、关系和数值，再输出精确页码。"}</p><p>候选依据：${top.overlap.slice(0, 5).join(" / ") || "课程 ready 教材宽松候选"} <span class="cite">[${top.book.name} p.45]</span></p>`;
+  els.answerBox.innerHTML = `<h3>${retrieval.softHit ? "宽松候选" : "答案"}</h3><p>已在 <strong>${top.book.name}</strong> 中找到${retrieval.softHit ? "需要全文校验的宽松候选" : "模糊候选"}。当前置信度 ${(top.score * 100).toFixed(0)}%。</p><p><strong>检索范围：</strong>${retrieval.scopeText || scopeDescription()}</p><p>${retrieval.softHit ? "由于问题表达和教材主题词不完全一致，系统不会在前端原型中断言最终答案；后端应继续执行 BM25 / 向量 / 数值单位检索，并校验 chunk 原文。" : "后端接入真实 chunk 后，将继续校验实体、属性、关系和数值，再输出精确章节锚点与辅助页码。"}</p><p>候选依据：${top.overlap.slice(0, 5).join(" / ") || "课程 ready 教材宽松候选"} <span class="cite">[${top.book.name} · ${retrieval.scopeText || "全课程"}]</span></p>`;
   els.citationList.innerHTML = retrieval.results
     .map((item, index) => {
       const tags = sectionTags(item.book, item.questionType).join("|");
@@ -334,9 +409,15 @@ function renderAnswer(retrieval = fuzzyRetrieve(els.questionInput.value)) {
 function sectionTags(book, questionType) {
   const title = course().title || currentCourseId;
   if (/金融|证券|市场/.test(`${book.name}${title}`)) {
+    if (course().strategy.chapterMode !== "course") {
+      return [chapterLabel(), course().strategy.chapterMode === "module" ? "同模块聚合" : "指定章节", questionType === "numeric" ? "考点：设立条件/金额要求" : "考点：机构与业务规则"];
+    }
     return ["第 3 章 金融市场基础设施", "3.2 证券登记结算机构", questionType === "numeric" ? "考点：设立条件/金额要求" : "考点：机构与业务规则"];
   }
   if (/数学|函数|分析/.test(`${book.name}${title}`)) {
+    if (course().strategy.chapterMode !== "course") {
+      return [chapterLabel(), course().strategy.chapterMode === "module" ? "同模块聚合" : "指定章节", questionType === "procedure" ? "考点：证明方法" : "考点：定义与性质"];
+    }
     return ["第 2 章 函数", "2.3 函数单调性", questionType === "procedure" ? "考点：证明方法" : "考点：定义与性质"];
   }
   return [title, roleText(book.role), "考点：候选知识点"];
@@ -440,7 +521,7 @@ els.saveCourse.addEventListener("click", () => {
 });
 els.newCourse.addEventListener("click", () => {
   currentCourseId = `course-${Date.now()}`;
-  courses[currentCourseId] = { id: currentCourseId, title: currentCourseId, strategy: { coreFirst: true, auxSortMode: "weight", missFeedback: true, retrievalScope: "cascade" }, books: [] };
+  courses[currentCourseId] = { id: currentCourseId, title: currentCourseId, strategy: defaultStrategy(), books: [] };
   saveCourses();
   render();
 });
@@ -470,17 +551,31 @@ els.simulateMiss.addEventListener("click", () => {
     render();
   }
 });
-[els.coreFirst, els.auxSortMode, els.missFeedback, els.retrievalScope].forEach((control) => {
+[els.coreFirst, els.auxSortMode, els.missFeedback, els.retrievalScope, els.chapterMode, els.chapterSelect, els.includeModule, els.tocDepth].forEach((control) => {
   control.addEventListener("change", () => {
     course().strategy = {
       coreFirst: els.coreFirst.checked,
       auxSortMode: els.auxSortMode.value,
       missFeedback: els.missFeedback.checked,
       retrievalScope: els.retrievalScope.value,
+      chapterMode: els.chapterMode.value,
+      selectedChapter: els.chapterSelect.value,
+      includeModule: els.includeModule.checked,
+      tocDepth: els.tocDepth.value,
     };
     saveCourses();
     render();
   });
+});
+els.qaChapterSelect.addEventListener("change", () => {
+  if (els.qaChapterSelect.value === "course") {
+    course().strategy.chapterMode = "course";
+  } else {
+    course().strategy.chapterMode = "chapter";
+    course().strategy.selectedChapter = els.qaChapterSelect.value;
+  }
+  saveCourses();
+  render();
 });
 
 render();
