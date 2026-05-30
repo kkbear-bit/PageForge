@@ -1,51 +1,74 @@
 # PageForge
 
-PageForge 是一个面向课程教材的溯源问答工作台原型。它不是简单的“和 PDF 聊天”，而是围绕课程、核心教材、辅助教材、页码证据和引用定位来组织问答流程。
+PageForge is a prototype workspace for course-grounded question answering. It focuses on one narrow but important problem: when a student asks a course question, the system should retrieve the right textbook evidence before it generates an answer.
 
-## 为什么需要 PageForge
+It is not a generic PDF chat interface. PageForge is designed around courses, core textbooks, auxiliary books, retrieval status, page-level evidence, and citation traceability.
 
-很多学习场景里的 AI 问答工具都有几个共同痛点：
+## The Problem
 
-- 答案看起来流畅，但不知道来自教材哪一页。
-- 多本教材混在一起检索，核心教材和辅助资料没有优先级。
-- 模型容易在证据不足时继续编造，学生很难判断答案是否可靠。
-- 教材上传、索引状态、检索过程和最终引用分散在不同地方，缺少可审计链路。
-- 老师或课程团队需要按课程管理资料，而不是把所有 PDF 放进一个混合知识库。
+Most document QA demos stop at “upload PDFs and ask questions”. That is not enough for course learning.
 
-PageForge 的目标是把这些环节放进同一个界面：先管理课程和教材，再观察索引状态，最后生成带页码、chunk 和 bbox 定位的答案。
+In real textbook QA, the hard part is often not generation. The hard part is retrieval:
 
-## 核心思路
+- A student question rarely uses the same wording as the textbook.
+  The query may ask “why is this function increasing”, while the textbook evidence is under “monotonicity”, “definition”, “sufficient condition”, or an example proof.
 
-PageForge 使用“证据优先”的课程问答流程：
+- Chunk retrieval can miss the exact teaching unit.
+  Definitions, formulas, diagrams, examples, and proof steps are often split across adjacent pages or chunks. Retrieving one isolated paragraph may lose the reasoning context.
 
-1. 按 `course_id` 管理课程资料。
-2. 区分核心教材和辅助教材。
-3. 离线解析教材，建立页码、chunk、bbox 和索引状态。
-4. 在线检索时优先查核心教材，再按权重补充辅助教材。
-5. 只有找到足够证据时才生成答案。
-6. 每段答案都尽量绑定可追溯引用。
+- Multiple books create noisy retrieval.
+  A course may contain a main textbook, lecture notes, example books, and solution manuals. If all documents are mixed together, an auxiliary solution can outrank the official textbook.
 
-## 当前功能
+- The system may retrieve a related paragraph but cite it as proof.
+  A semantically similar chunk is not always sufficient evidence. Course QA needs to know whether the retrieved text actually supports the answer.
 
-- 课程空间：切换、新建和保存不同课程。
-- 教材队列：模拟添加 PDF、EPUB、MOBI、TXT 教材。
-- 索引状态：展示 `queued`、`processing`、`ready` 三种状态。
-- 检索策略：支持核心教材优先、辅助教材排序、级联/全库/核心检索。
-- 引用定位：展示书名、页码、chunk id 和模拟 bbox 高亮。
-- 未命中反馈：证据不足时不强行生成确定性答案。
+- Page citations can become detached from the generated answer.
+  Many RAG demos show citations, but the answer sentence is not tightly connected to the cited page, chunk, or bounding box.
 
-## 项目定位
+- Retrieval failure is often invisible.
+  When no good chunk is found, many systems still generate a fluent answer. In education, “not enough evidence in the indexed course material” is a valid and necessary result.
 
-这是一个前端原型，用来验证课程级 RAG 产品的交互方式和信息架构。后续可以接入真实后端，扩展为完整的教材解析、索引、检索和问答系统。
+PageForge explores a more auditable workflow for these retrieval problems.
 
-适合的使用场景：
+## What PageForge Tries To Do
 
-- 课程教材问答系统原型
-- 教学资料 RAG 产品 Demo
-- 带引用答案的学习助手界面
-- 教材解析与证据链工作流展示
+PageForge organizes course QA around an evidence-first retrieval pipeline:
 
-## 文件结构
+1. Scope every query to a `course_id`.
+2. Separate the core textbook from auxiliary materials.
+3. Track indexing state before a book can participate in online QA.
+4. Retrieve from the core textbook first, then supplement with weighted auxiliary books.
+5. Preserve page, chunk, and bbox metadata for citation inspection.
+6. Show retrieval traces and refuse to produce a confident answer when evidence is insufficient.
+
+## Current Prototype
+
+This repository currently contains a zero-dependency frontend prototype.
+
+Implemented in the demo:
+
+- Course workspace for switching, creating, and saving course configurations.
+- Textbook queue with core/auxiliary roles, weights, and indexing states.
+- Retrieval strategy controls for core-first, weighted auxiliary retrieval, and scope selection.
+- Simulated indexing lifecycle: `queued`, `processing`, `ready`.
+- Evidence trace panel that explains how the answer was retrieved.
+- Citation panel with page and simulated bbox highlighting.
+- “Insufficient evidence” simulation to show non-answer behavior.
+
+## Product Direction
+
+The long-term goal is a course-aware RAG system where answer quality is judged not only by fluency, but by whether the system retrieved the right textbook evidence.
+
+Planned backend capabilities:
+
+- PDF, EPUB, MOBI parsing with page preservation.
+- OCR and formula-aware layout extraction.
+- Chunking that respects textbook structure such as definitions, examples, proofs, and exercises.
+- Hybrid retrieval using BM25, vector search, reranking, and course-specific weighting.
+- Citation verification that checks whether each answer claim is supported by retrieved evidence.
+- Index task queue with per-book readiness and failure states.
+
+## File Structure
 
 ```text
 .
@@ -56,31 +79,20 @@ PageForge 使用“证据优先”的课程问答流程：
 └── .gitignore
 ```
 
-## 本地运行
+## Run Locally
 
-PageForge 是零依赖静态页面，可以直接用浏览器打开 `index.html`。
-
-也可以启动本地静态服务：
+PageForge is a static frontend. Open `index.html` directly, or run a local static server:
 
 ```bash
 python -m http.server 8000
 ```
 
-然后访问：
+Then visit:
 
 ```text
 http://localhost:8000
 ```
 
-## 后续计划
-
-- 接入真实 PDF、EPUB、MOBI 解析。
-- 支持 OCR、公式识别和版面坐标抽取。
-- 将页码、bbox、chunk、embedding 写入后端证据库。
-- 引入 BM25、向量检索和重排模型。
-- 接入问答模型，只基于教材证据生成答案。
-- 增加用户登录、课程权限和索引任务队列。
-
 ## License
 
-未指定许可证。公开发布前建议补充合适的开源协议。
+No license has been selected yet.
