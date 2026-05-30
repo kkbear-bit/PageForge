@@ -1,74 +1,76 @@
 # PageForge
 
-PageForge is a prototype workspace for course-grounded question answering. It focuses on one narrow but important problem: when a student asks a course question, the system should retrieve the right textbook evidence before it generates an answer.
+Course-grounded QA workspace with evidence-first retrieval.
 
-It is not a generic PDF chat interface. PageForge is designed around courses, core textbooks, auxiliary books, retrieval status, page-level evidence, and citation traceability.
+PageForge 是一个面向课程教材的溯源问答工作台原型。它关注的不是“让 AI 和 PDF 聊天”，而是：当学生提出课程问题时，系统应该先找到可靠教材证据，再生成可复核的答案。
 
-## The Problem
+## 一句话定位
 
-Most document QA demos stop at “upload PDFs and ask questions”. That is not enough for course learning.
+在大模型上下文有限、传统检索难以兼顾查准率、查全率和效率的情况下，PageForge 为课程资料建立一个可检索、可溯源、可审计、可拒答的教材证据链问答系统。
 
-In real textbook QA, the hard part is often not generation. The hard part is retrieval:
+## 产品痛点
 
-- A student question rarely uses the same wording as the textbook.
-  The query may ask “why is this function increasing”, while the textbook evidence is under “monotonicity”, “definition”, “sufficient condition”, or an example proof.
+### 1. 大模型无法高效完整阅读整套课程资料
 
-- Chunk retrieval can miss the exact teaching unit.
-  Definitions, formulas, diagrams, examples, and proof steps are often split across adjacent pages or chunks. Retrieving one isolated paragraph may lose the reasoning context.
+一门课程往往包含主教材、讲义、习题解答、参考书和补充资料。大模型一次可处理的文本量有限，即使使用长上下文，也会带来成本高、响应慢、注意力分散和关键信息遗漏的问题。
 
-- Multiple books create noisy retrieval.
-  A course may contain a main textbook, lecture notes, example books, and solution manuals. If all documents are mixed together, an auxiliary solution can outrank the official textbook.
+### 2. 传统检索难以同时保证查准、查全和效率
 
-- The system may retrieve a related paragraph but cite it as proof.
-  A semantically similar chunk is not always sufficient evidence. Course QA needs to know whether the retrieved text actually supports the answer.
+关键词检索、目录检索和人工翻书在关键词明确时查准率较高，但面对同义表达、概念变体、跨章节问题和多本资料时，效率低、覆盖不全，也难以理解问题语义。
 
-- Page citations can become detached from the generated answer.
-  Many RAG demos show citations, but the answer sentence is not tightly connected to the cited page, chunk, or bounding box.
+### 3. AI 答案缺少可验证出处
 
-- Retrieval failure is often invisible.
-  When no good chunk is found, many systems still generate a fluent answer. In education, “not enough evidence in the indexed course material” is a valid and necessary result.
+普通 AI 问答可以生成流畅解释，但经常无法明确说明答案来自哪本教材、哪一页、哪段定义、公式或例题，用户难以复核。
 
-PageForge explores a more auditable workflow for these retrieval problems.
+### 4. 课程资料主次关系不清
 
-## What PageForge Tries To Do
+核心教材、讲义、参考书和习题解答的权威性不同。如果全部混入同一个知识库，系统可能把辅助资料当成主教材依据，影响教学一致性。
 
-PageForge organizes course QA around an evidence-first retrieval pipeline:
+### 5. 证据不足时仍可能生成误导性答案
 
-1. Scope every query to a `course_id`.
-2. Separate the core textbook from auxiliary materials.
-3. Track indexing state before a book can participate in online QA.
-4. Retrieve from the core textbook first, then supplement with weighted auxiliary books.
-5. Preserve page, chunk, and bbox metadata for citation inspection.
-6. Show retrieval traces and refuse to produce a confident answer when evidence is insufficient.
+在没有足够教材证据时，通用问答模型仍可能继续推测或编造。教学场景需要明确的未命中反馈，而不是看似合理但无依据的回答。
 
-## Current Prototype
+### 6. 教材索引与检索过程不可见
 
-This repository currently contains a zero-dependency frontend prototype.
+用户不知道资料是否已经解析完成、是否可检索、检索时先查了哪些教材、是否命中核心教材，也难以判断答案生成过程是否可靠。
 
-Implemented in the demo:
+### 7. 答案缺少审计链路
 
-- Course workspace for switching, creating, and saving course configurations.
-- Textbook queue with core/auxiliary roles, weights, and indexing states.
-- Retrieval strategy controls for core-first, weighted auxiliary retrieval, and scope selection.
-- Simulated indexing lifecycle: `queued`, `processing`, `ready`.
-- Evidence trace panel that explains how the answer was retrieved.
-- Citation panel with page and simulated bbox highlighting.
-- “Insufficient evidence” simulation to show non-answer behavior.
+教师、助教和课程团队需要检查 AI 回答是否符合指定教材，但缺少页码、chunk、bbox、检索轨迹等可审计信息。
 
-## Product Direction
+### 8. 多课程资料容易混淆
 
-The long-term goal is a course-aware RAG system where answer quality is judged not only by fluency, but by whether the system retrieved the right textbook evidence.
+多门课程共用资料库时，容易出现跨课程引用、资料污染和检索范围不清的问题，需要按课程隔离资料和索引。
 
-Planned backend capabilities:
+## 产品需求
 
-- PDF, EPUB, MOBI parsing with page preservation.
-- OCR and formula-aware layout extraction.
-- Chunking that respects textbook structure such as definitions, examples, proofs, and exercises.
-- Hybrid retrieval using BM25, vector search, reranking, and course-specific weighting.
-- Citation verification that checks whether each answer claim is supported by retrieved evidence.
-- Index task queue with per-book readiness and failure states.
+- 课程级资料管理：以 `course_id` 或课程空间为单位管理教材、讲义、习题解答和参考资料。
+- 教材角色与权重配置：区分核心教材、辅助教材、讲义、习题解答等资料类型，并配置检索权重。
+- 离线索引与在线问答分离：解析、切块、OCR、embedding、BM25 建库等任务离线完成，在线问答只检索已 ready 的资料。
+- 混合检索能力：结合语义检索、关键词检索、页码/章节过滤和重排模型，提高查准率、查全率和响应效率。
+- 核心教材优先检索：优先检索核心教材；只有核心教材证据不足时，再按权重补充辅助资料。
+- 证据门控与拒答机制：检索不到足够证据时明确提示证据不足，而不是生成没有教材依据的答案。
+- 带引用的答案生成：答案绑定书名、页码、章节、chunk id，未来进一步支持 bbox 高亮定位。
+- 检索轨迹可视化：展示课程过滤、核心教材检索、辅助资料补充、命中状态和未命中原因。
+- 索引状态可视化：显示每本教材的 `queued`、`processing`、`ready`、`failed` 等状态。
+- 答案复核与审计：支持点击引用定位到原文位置，方便学生复习、教师核查和课程团队审计。
+- 可扩展后端接口：预留真实 RAG 系统接口，后续接入文件解析、OCR、向量库、SQLite、重排模型和问答模型。
 
-## File Structure
+## 当前原型
+
+本仓库目前是一个零依赖前端原型，用于验证课程级 RAG 产品的交互方式和信息架构。
+
+已实现：
+
+- 课程空间切换、新建和保存。
+- 教材队列、核心/辅助角色、权重和索引状态展示。
+- `queued`、`processing`、`ready` 索引生命周期模拟。
+- 核心教材优先、辅助教材排序、检索范围控制。
+- 检索轨迹面板，展示系统如何到达答案。
+- 引用定位面板，展示页码、chunk 和模拟 bbox 高亮。
+- 证据不足模拟，用于展示拒答和未命中反馈。
+
+## 项目结构
 
 ```text
 .
@@ -79,19 +81,30 @@ Planned backend capabilities:
 └── .gitignore
 ```
 
-## Run Locally
+## 本地运行
 
-PageForge is a static frontend. Open `index.html` directly, or run a local static server:
+PageForge 是静态前端页面，可以直接打开 `index.html`。
+
+也可以启动本地静态服务：
 
 ```bash
 python -m http.server 8000
 ```
 
-Then visit:
+然后访问：
 
 ```text
 http://localhost:8000
 ```
+
+## 后续方向
+
+- PDF、EPUB、MOBI 解析与页码保留。
+- OCR、公式识别和版面坐标抽取。
+- 面向定义、例题、证明、习题的教材结构化切块。
+- BM25、向量检索、重排模型和课程权重融合。
+- 答案声明与引用证据的自动校验。
+- 每本教材的索引任务队列、失败重试和 readiness 管理。
 
 ## License
 
