@@ -340,6 +340,89 @@ textarea:focus {
   margin-bottom: 18px;
 }
 
+.pain-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.pain-card {
+  min-height: 160px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+
+.pain-card span {
+  display: inline-flex;
+  color: var(--red);
+  font-size: 12px;
+  font-weight: 900;
+  margin-bottom: 10px;
+}
+
+.pain-card h3 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.35;
+}
+
+.pain-card p {
+  margin: 9px 0 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.solution-band {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.75fr) minmax(0, 1.25fr);
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 18px;
+  border: 1px solid rgba(39, 100, 216, 0.28);
+  border-radius: 8px;
+  background: #f7fbff;
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+
+.solution-band h3 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.solution-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.solution-steps div {
+  min-height: 74px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 10px;
+}
+
+.solution-steps strong {
+  display: block;
+  color: var(--blue);
+  font-size: 18px;
+}
+
+.solution-steps span {
+  display: block;
+  margin-top: 5px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
 .stat-card {
   min-height: 92px;
   padding: 16px;
@@ -636,8 +719,14 @@ textarea:focus {
   }
 
   .stats-grid,
+  .pain-grid,
   .flow-panel,
   .content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .solution-band,
+  .solution-steps {
     grid-template-columns: 1fr;
   }
 }
