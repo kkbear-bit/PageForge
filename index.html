@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PageForge · Course Grounded QA</title>
+    <title>PageForge · 教材溯源问答工作台</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -45,7 +45,7 @@
           <label class="upload-drop" for="bookUpload">
             <input id="bookUpload" type="file" accept=".pdf,.epub,.mobi,.txt" multiple />
             <strong>选择教材文件</strong>
-            <span>加入课程索引队列，演示版不会上传真实文件</span>
+            <span>演示版仅加入本地索引队列，不上传真实文件</span>
           </label>
           <div class="upload-controls">
             <label class="field">
@@ -99,14 +99,45 @@
         <header class="topbar">
           <div>
             <span class="eyebrow">Evidence-first course QA</span>
-            <h2>题目与课本连贯解析工作台</h2>
-            <p>把课程、教材、索引状态和答案引用放在同一个可审计界面里。</p>
+            <h2>让 AI 答案回到教材证据链上</h2>
+            <p>PageForge 把课程、教材优先级、索引状态、检索过程和页码引用放在同一个可审计工作台里。</p>
           </div>
           <div class="top-actions">
             <button id="runIndex" class="primary-button">运行索引</button>
-            <button id="simulateMiss" class="secondary-button">模拟全书未命中</button>
+            <button id="simulateMiss" class="secondary-button">模拟证据不足</button>
           </div>
         </header>
+
+        <section class="pain-grid">
+          <article class="pain-card">
+            <span>痛点 01</span>
+            <h3>答案流畅，却找不到教材出处</h3>
+            <p>学生看到结论，却无法确认它来自哪本书、哪一页、哪段定义或例题。</p>
+          </article>
+          <article class="pain-card">
+            <span>痛点 02</span>
+            <h3>多本资料混检，主次不分</h3>
+            <p>核心教材、讲义、习题解答被放进同一个知识库，容易把辅助资料当成主教材依据。</p>
+          </article>
+          <article class="pain-card">
+            <span>痛点 03</span>
+            <h3>证据不足时仍然编造</h3>
+            <p>普通问答工具倾向继续生成，课程场景更需要明确的未命中反馈和审计轨迹。</p>
+          </article>
+        </section>
+
+        <section class="solution-band">
+          <div>
+            <span class="eyebrow">PageForge approach</span>
+            <h3>按课程组织教材，按证据生成答案</h3>
+          </div>
+          <div class="solution-steps">
+            <div><strong>1</strong><span>课程隔离</span></div>
+            <div><strong>2</strong><span>核心教材优先</span></div>
+            <div><strong>3</strong><span>页码与 bbox 引用</span></div>
+            <div><strong>4</strong><span>证据不足则拒答</span></div>
+          </div>
+        </section>
 
         <section class="stats-grid">
           <div class="stat-card">
@@ -130,18 +161,18 @@
         <section class="flow-panel">
           <div class="module-card active">
             <span class="module-kicker">01 · 离线</span>
-            <h3>文件解析与切块</h3>
-            <p>抽取文本、页码、版面坐标和 chunk，等待后端写入证据库。</p>
+            <h3>解析教材证据</h3>
+            <p>抽取文本、页码、chunk 和 bbox，保留可追溯的教材位置。</p>
           </div>
           <div class="module-card">
-            <span class="module-kicker">02 · 存储</span>
-            <h3>索引库与元数据</h3>
-            <p>用 SQLite 保存页码和 bbox，用向量库与 BM25 支撑召回。</p>
+            <span class="module-kicker">02 · 检索</span>
+            <h3>按课程和权重召回</h3>
+            <p>先查核心教材，再按权重补充辅助教材，避免资料混用。</p>
           </div>
           <div class="module-card">
-            <span class="module-kicker">03 · 在线</span>
-            <h3>有证据的回答</h3>
-            <p>先查核心教材，再按策略补充辅助书；证据不足时拒绝编造。</p>
+            <span class="module-kicker">03 · 回答</span>
+            <h3>生成带引用答案</h3>
+            <p>证据足够才回答；证据不足时展示未命中原因和检索轨迹。</p>
           </div>
         </section>
 
@@ -158,7 +189,7 @@
           <section class="panel qa-panel">
             <div class="section-title">
               <span>问答检索</span>
-              <span class="pill">cascade retrieval</span>
+              <span class="pill">evidence trace</span>
             </div>
             <textarea id="questionInput">如何理解函数单调性的定义，并用课本例题说明证明步骤？</textarea>
             <button id="askButton" class="primary-button full-width">检索并生成答案</button>
