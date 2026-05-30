@@ -131,7 +131,7 @@
           <div class="module-card active">
             <span class="module-kicker">01 · 离线</span>
             <h3>解析教材证据</h3>
-            <p>抽取文本、页码、chunk 和 bbox，保留可追溯的教材位置。</p>
+            <p>抽取章节编号、知识点、上下文、页码和 bbox，保留可追溯的教材位置。</p>
           </div>
           <div class="module-card">
             <span class="module-kicker">02 · 检索</span>
@@ -168,14 +168,16 @@
 
           <section class="panel citation-panel">
             <div class="section-title">
-              <span>引用定位</span>
-              <span class="pill">page + bbox</span>
+              <span>章节锚点</span>
+              <span class="pill">section + context</span>
             </div>
             <div class="pdf-viewer">
               <div class="page-label" id="pageLabel">p.45</div>
+              <div class="chapter-tags" id="chapterTags"></div>
               <div class="text-line wide"></div>
               <div class="text-line"></div>
               <div class="highlight-box" id="highlightBox">定义：函数在区间上的单调性</div>
+              <div class="context-strip" id="contextStrip"></div>
               <div class="text-line short"></div>
               <div class="formula-box">x₁ &lt; x₂ ⇒ f(x₁) ≤ f(x₂)</div>
               <div class="text-line"></div>
